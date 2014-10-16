@@ -1,11 +1,6 @@
----
-title: "Reproducible Research: Peer Assessment 1"
-author: "Gareth Houk"
-date: "Thursday, October 16, 2014"
-output: 
-  html_document:
-    keep_md: true
----
+# Reproducible Research: Peer Assessment 1
+Gareth Houk  
+Thursday, October 16, 2014  
 This document is produced using R Markdown for Project 1 of the Reproducible Research course.
 
 The assignment's description of the dataset is as follows.
@@ -17,7 +12,8 @@ This assignment makes use of data from a personal activity monitoring device. Th
 
 ## Loading and preprocessing the data
 
-```{r, echo=TRUE}
+
+```r
         csvfile <- "activity.csv"
         if (!file.exists(csvfile)) {
                 zipfile <- "repdata_data_activity.zip"
