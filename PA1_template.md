@@ -62,14 +62,126 @@ The mean number of steps per day is 10766.19 and the median number of steps is 1
 
 ## What is the average daily activity pattern?
 
+This portion of code creates a time series plot of the 5-minute interval and the average number of steps taken, averaged across all days, and finds which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps.
 
 
+```r
+        mean.by.minutesegment<-aggregate(data$steps,data["min"],FUN=mean,na.rm=TRUE)
+        mean.by.minutesegment<-mean.by.minutesegment[order(as.numeric(mean.by.minutesegment$min)),]
+        colnames(mean.by.minutesegment)<-c("min","steps")
+        plot(mean.by.minutesegment,type="l",
+             xlab="5 Minute Interval (by Beginning Minute)",
+             ylab="Mean Number of Steps",
+             main="Mean Steps by Interval")
+```
+
+![plot of chunk unnamed-chunk-3](./PA1_template_files/figure-html/unnamed-chunk-3.png) 
+
+```r
+        maxidx      <- which.max(mean.by.minutesegment$steps)
+        maxsegname  <- mean.by.minutesegment$min[maxidx]  # max segment for printing
+        maxsegsteps <- mean.by.minutesegment$steps[maxidx]  # max value value for printing
+```
+
+The time interval with the highest average number of steps across all days is the 5-minute interval beginning at the 15th minute of the hour and the average number of steps in that interval is 42.1187.  For the purposes of this calculation and the plot above, we have excluded missing values in the raw data (i.e. NA values).
 
 ## Imputing missing values
 
+In this section, we replace missing values in the steps variable (I assume that there are no missing values in the interval or date variables) by *imputing* them.  The method I adopt is to find the median value for that interval across all days in the sample.  For example, interval 1135 corresponds to the time interval 11:35AM to 11:40AM.  The code below finds the median of all such intervals and inserts this median into all 1135 intervals for which the variable steps is NA.  The motivation for choosing median rather than average is that I would like to impute a "typical" interval.  Because of this, I expect that median values calculated from the imputed data frame will be fairly close to those computed above but I might expect that means would differ somewhat more.  
+
+The code below first calculates the total number of missing values in the dataset (i.e. the total number of rows with NAs in the step variable.), then creates a new dataset frame (dataimpute) that is identical to the original dataset but with the missing data filled in using the imputation method described in the preceding paragraph.  Finally, the code makes a histogram of the total number of steps taken each day and calculates the mean and median total number of steps taken per day for comparison to the prior raw data calculations. 
 
 
+```r
+        # here I cheat a little.  I assume that all the intervals and dates
+        # are there rather than imputing them
+        numnastep <- sum(as.numeric(is.na(data$step))) # number of missing values - steps
+        # impute the steps by taking the median across that interval for all days
+        median.by.interval<-aggregate(data$steps,data["interval"],median,na.rm=TRUE)
+        colnames(median.by.interval) <- c("interval","imputed")
+        data.na.rm<-data
+        data.na.rm$origsteps<-data.na.rm$steps #store original data including NAs
+        data.na.rm <- merge(data.na.rm,median.by.interval,by="interval")
+        data.na.rm[is.na(data.na.rm$steps),"steps"]<-data.na.rm[is.na(data.na.rm$steps),"imputed"]
+        # I'm going to keep this array, but resort into the same order 
+        # as the original frame "data" and drop the columns "origsteps" and "imputed"
+        # to make it identical to "data" but with steps replaced by steps if there's
+        # data and imputed steps if there's an NA.  This decision is based on
+        # what the assignment says: 
+        # "Create a new dataset that is equal to the original 
+        #  dataset but with the missing data filled in."
+        # The new frame is called "dataimpute"
+        dataimpute <- data.na.rm[,!(names(data.na.rm) %in% c("origsteps","imputed"))]
+        dataimpute <- dataimpute[order(dataimpute$time),]
+        dataimpute<-dataimpute[,names(data)]
+        # get mean and median from imputed data
+        total.by.day.impute<-tapply(dataimpute$steps,dataimpute$date,FUN=sum)
+        hist(total.by.day.impute,breaks=10,
+             main="Histogram of Total Number of Steps per Day\nWith Imputed Values",
+             xlab="Steps",ylab="Frequency")
+```
+
+![plot of chunk unnamed-chunk-4](./PA1_template_files/figure-html/unnamed-chunk-4.png) 
+
+```r
+        meanstep.impute  <-mean(total.by.day.impute)  # note remore na.rm=TRUE 
+        medianstep.impute<-median(total.by.day.impute)# because we imputed NAs
+        pctdiffmean   <- abs(100*(meanstep-meanstep.impute)/mean(meanstep,meanstep.impute))
+        pctdiffmedian <- abs(100*(medianstep-medianstep.impute)/mean(medianstep,medianstep.impute))
+```
+
+The table below compares the mean and median number of steps calculated via both methods: removing NAs (as shown at the beginning of this document) and after imputing missing values.  
+
+
+```r
+        library(xtable)
+        mtable<-data.frame(c("NAs removed","Imputed"),c(meanstep,meanstep.impute),c(medianstep,medianstep.impute))
+        names(mtable)<-c("Method","Mean","Median")
+        xt<-xtable(mtable)
+        print(xt, type="html")
+```
+
+<!-- html table generated in R 3.1.1 by xtable 1.7-4 package -->
+<!-- Thu Oct 16 21:27:56 2014 -->
+<table border=1>
+<tr> <th>  </th> <th> Method </th> <th> Mean </th> <th> Median </th>  </tr>
+  <tr> <td align="right"> 1 </td> <td> NAs removed </td> <td align="right"> 10766.19 </td> <td align="right"> 10765 </td> </tr>
+  <tr> <td align="right"> 2 </td> <td> Imputed </td> <td align="right"> 9503.87 </td> <td align="right"> 10395 </td> </tr>
+   </table>
+
+
+We see that the mean and median differ from the estimates from the first part of the assignment, i.e. those calculated by removing missing values.  As expected, the medians given by the two methods are relatively close (since the imputed values are medians); these two median values differ by only 3.4%.  However, the two methods yield mean values which are significantly different; they differ by 11.7%. One might expect a larger impact in this calculation.  When we impute missing values using median values, we introduce a number of observations replicating the median value and thereby biasing this mean calculation closer to these median values.
 
 ## Are there differences in activity patterns between weekdays and weekends?
 
+The code below uses the weekdays() function to create a new factor variable in the dataset with two levels, "weekday" and "weekend," indicating whether a given date is a weekday or weekend day.  Using this factor, the code produces a panel plot containing a time series plot of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis). 
 
+
+```r
+        # weekday/weekend part of analysis
+        # Assignment doesn't specify whether to use imputed or raw dataset
+        # I will choose imputed because I don't have to worry about NAs 
+        # in that case.
+        dataimpute$day   <- weekdays(dataimpute$time)
+        dataimpute$wkday <- "Weekday"
+        dataimpute[dataimpute$day=="Saturday"|dataimpute$day=="Sunday",]$wkday<-"Weekend"
+        dataimpute$wkday<-as.factor(dataimpute$wkday)
+        # I can't stand seeing the gaps in this plot due to 55 being next to 00
+        # so create a new interval variable which is number of minutes from
+        # the beginning of the day
+        dataimpute$Minterval <- as.numeric(dataimpute$min) + 60*as.numeric(dataimpute$hr)
+        mean.by.wkday<-aggregate(steps~Minterval+wkday,data=dataimpute,FUN=mean)
+        library(ggplot2)
+        p <- ggplot(mean.by.wkday, aes(Minterval,steps)) 
+        p + geom_line() +
+            facet_grid(wkday ~. ) + 
+            labs(title="Compare Average Steps by Interval\nFor the Weekdays and Weekend",
+                 x="Interval in Minutes from Midnight",
+                 y="Steps Averaged Over All Days")
+```
+
+![plot of chunk unnamed-chunk-6](./PA1_template_files/figure-html/unnamed-chunk-6.png) 
+
+Note that in the above plot, I have changed the x-axis from that shown in the example.  Using the raw value of the variable interval leaves gaps between the 55th minute and the top of the hour, which gives the impression of time discontinuties which of course do not exist.  Instead, I have relabeled this in the number of minutes after midnight, from 0 to 1440.  
+
+The plot shows just what might expect.  The number of steps early in the morning is larger for weekdays.  People wake up earlier to get to work.  During the midday, the number of steps is lower, presumedly because of the workday.  On the weekend, the number of steps early in the morning is small, presumedly because people like to sleep in.  General levels of activity are higher throughout the remainder of the day and later in the day because people have more free time when they are away from work.
